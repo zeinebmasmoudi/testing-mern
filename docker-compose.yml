@@ -11,7 +11,7 @@ services:
       MONGO_INITDB_DATABASE: testing
 
   backend:
-    image: yourdockerhub/backend:latest  # Pre-built image from DockerHub
+    image: ${DOCKER_USERNAME}/express-backend:${TAG:-latest}  # Pre-built image from DockerHub
     container_name: backend
     ports:
       - "5000:5000"
@@ -19,11 +19,10 @@ services:
       - mongodb
     environment:
       MONGO_URI: mongodb://mongodb:27017/testing  # Uses Docker's internal network
-      JWT_SECRET: your_jwt_secret
     restart: unless-stopped
 
   frontend:
-    image: yourdockerhub/frontend:latest  # Pre-built image from DockerHub
+    image: ${DOCKER_USERNAME}/react-frontend:${TAG:-latest}  # Pre-built image from DockerHub
     container_name: frontend
     ports:
       - "5173:5173"
