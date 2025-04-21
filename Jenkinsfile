@@ -1,78 +1,71 @@
 pipeline {
-  agent {
-    docker {
-      image 'docker:24.0'
-      args '--privileged -v /var/run/docker.sock:/var/run/docker.sock'
+    agent any
+    
+    environment {
+        TAG = "${env.BUILD_NUMBER}"
+        DOCKER_COMPOSE_FILE = "docker-compose.yml"
     }
-  }
-
-  environment {
-    // Use your exact DockerHub username from credentials
-    DOCKER_REGISTRY = 'zeineb092'
-  }
-
-  stages {
-    stage('Checkout') {
-      steps {
-        checkout scm
-      }
-    }
-
-    stage('Build & Push') {
-      steps {
-        script {
-          withCredentials([usernamePassword(
-            credentialsId: 'docker-hub-credentials',
-            usernameVariable: 'DOCKERHUB_USER',
-            passwordVariable: 'DOCKERHUB_PASS'
-          )]) {
-            // Backend
-            dir('server') {
-              retry(3) {
-                sh """
-                  docker build -t ${DOCKER_REGISTRY}/mern-backend:${GIT_COMMIT_SHORT} .
-                  echo \"Logging into DockerHub as ${DOCKERHUB_USER}\"
-                  echo \"${DOCKERHUB_PASS}\" | docker login -u \"${DOCKERHUB_USER}\" --password-stdin
-                  docker push ${DOCKER_REGISTRY}/mern-backend:${GIT_COMMIT_SHORT}
-                """
-              }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
             }
-
-            // Frontend
-            dir('client') {
-              retry(3) {
-                sh """
-                  docker build -t ${DOCKER_REGISTRY}/mern-frontend:${GIT_COMMIT_SHORT} .
-                  docker push ${DOCKER_REGISTRY}/mern-frontend:${GIT_COMMIT_SHORT}
-                """
-              }
-            }
-          }
         }
-      }
+        
+        stage('Build Backend Image') {
+            steps {
+                dir('server') {
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                        bat "docker build -t %DOCKER_USERNAME%/express-backend:%TAG% ."
+                    }
+                }
+            }
+        }
+        
+        stage('Build Frontend Image') {
+            steps {
+                dir('client') {
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                        bat "docker build -t %DOCKER_USERNAME%/react-frontend:%TAG% ."
+                    }
+                }
+            }
+        }
+        
+        stage('Push Images to Docker Hub') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    bat "echo %DOCKER_PASSWORD%| docker login -u %DOCKER_USERNAME% --password-stdin"
+                    bat "docker push %DOCKER_USERNAME%/express-backend:%TAG%"
+                    bat "docker push %DOCKER_USERNAME%/react-frontend:%TAG%"
+                    
+                    // Also tag and push as latest
+                    bat "docker tag %DOCKER_USERNAME%/express-backend:%TAG% %DOCKER_USERNAME%/express-backend:latest"
+                    bat "docker tag %DOCKER_USERNAME%/react-frontend:%TAG% %DOCKER_USERNAME%/react-frontend:latest"
+                    bat "docker push %DOCKER_USERNAME%/express-backend:latest"
+                    bat "docker push %DOCKER_USERNAME%/react-frontend:latest"
+                }
+            }
+        }
+        
+        stage('Deploy') {
+            steps {
+                // Export environment variables for docker-compose
+                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    bat "set DOCKER_USERNAME=%DOCKER_USERNAME%"
+                    bat "set TAG=%TAG%"
+                    bat "docker-compose -f %DOCKER_COMPOSE_FILE% down || echo 'No containers to stop'"
+                    bat "docker-compose -f %DOCKER_COMPOSE_FILE% up -d"
+                }
+            }
+        }
     }
-
-    stage('Deploy') {
-      steps {
-        sh '''
-          docker-compose down || true
-          docker-compose pull
-          docker-compose up -d
-        '''
-      }
+    
+    post {
+        always {
+            bat "docker logout"
+            cleanWs()
+        }
     }
-  }
-
-  post {
-    always {
-      sh 'docker logout || true'
-      cleanWs()
-    }
-    failure {
-      slackSend(
-        channel: '#build-alerts',
-        message: "FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
-      )
-    }
-  }
 }
