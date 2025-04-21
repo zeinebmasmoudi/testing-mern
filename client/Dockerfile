@@ -8,7 +8,6 @@ RUN npm run build  # Creates optimized production build (in /dist or /build)
 
 # Stage 2: Run (using Nginx for production)
 FROM nginx:alpine
-COPY --from=builder /app/dist /usr/share/nginx/html  # Adjust /dist if needed
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /app/dist /usr/share/nginx/html  
 EXPOSE 5173
 CMD ["nginx", "-g", "daemon off;"]
