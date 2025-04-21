@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: testing
+
+  backend:
+    image: yourdockerhub/backend:latest  # Pre-built image from DockerHub
+    container_name: backend
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mongodb
+    environment:
+      MONGO_URI: mongodb://mongodb:27017/testing  # Uses Docker's internal network
+      JWT_SECRET: your_jwt_secret
+    restart: unless-stopped
+
+  frontend:
+    image: yourdockerhub/frontend:latest  # Pre-built image from DockerHub
+    container_name: frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:
