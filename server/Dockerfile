@@ -4,7 +4,6 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
-RUN npm run build  # If you have a build step (e.g., for TypeScript)
 
 # Stage 2: Run
 FROM node:18-alpine
