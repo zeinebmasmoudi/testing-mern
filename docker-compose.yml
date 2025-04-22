@@ -11,12 +11,12 @@ services:
       MONGO_INITDB_DATABASE: testing
 
   backend:
+    depends_on:
+      - mongodb
     image: ${DOCKER_USERNAME}/express-backend:${TAG:-latest}  # Pre-built image from DockerHub
     container_name: backend
     ports:
       - "5000:5000"
-    depends_on:
-      - mongodb
     environment:
       MONGO_URI: mongodb://mongodb:27017/testing  # Uses Docker's internal network
     restart: unless-stopped
