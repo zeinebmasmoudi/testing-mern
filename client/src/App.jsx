@@ -103,8 +103,13 @@ const App = () => {
 
   return (
     <div>
+      {/* Main App Title */}
+      <div className="main-header">
+        <h1>My Mern App</h1>
+      </div>
+
       <div className="container">
-        <h1>MERN Stack Project (CRUD) - Hayyan shaikh</h1>
+        <h2>MERN Stack Project (CRUD) - Hayyan shaikh</h2>
         <form onSubmit={handleAddUser}>
           <input
             type="text"
